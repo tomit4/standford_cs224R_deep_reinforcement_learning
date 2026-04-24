@@ -286,7 +286,7 @@ and in the second case, time is represented as when the user responds next.
 The following is an example reward, maybe there's a voting system or some other
 metric for rewards:
 
-reward $r(\mathbf{s}, \mathbf{a)$ = 1 if the user gives upvore, -10 if the user
+reward $r(\mathbf{s}, \mathbf{a))$ = 1 if the user gives upvore, -10 if the user
 downvotes, 0 if no user feedback.
 
 ## How to represent behavior with a neural network?
