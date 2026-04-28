@@ -620,7 +620,7 @@ full Q-learning with replay buffer:
 
 ![image 6_16](./6_16.png)
 
-**How to make Q-learning stable?**
+## How to make Q-learning stable?
 
 1. collect data $\{(s_i, a_i, s_{i}', r_i)\}$ using some policy, add it to
    $\mathscr{R}$
@@ -633,3 +633,280 @@ full Q-learning with replay buffer:
    c. Repeat a and b multiple times, $K$ times.
 
 2. After taking $K$ gradient steps, repeat 1.a.
+
+So now let's see how Q-learning looks in practice.
+
+We've talked about how Q-learning can diverge, and in general when you run
+Q-learning with NN, it can be unstable, and one of the reasons for that is you
+have this moving target in step 3:
+
+$$ \underbrace{\left[r(s_i, a_i) + \gamma\max_{a'}Q_\phi(s_{i}',a_{i}')\right]}_{\text{this is a moving target}} $$
+
+And here it seems that our optimization process is very non-stationary,
+especially if $K$ is $1$. One trick is to try to slow down how often you change
+the target. So, instead of having these targets change every single time you
+change the parameters, one idea is that you could freeze the parameters of your
+target network, and only update them periodically, only update them every 100
+gradient steps, or something like that.
+
+Can we change the target Q-values more slowly?
+
+Simple idea: freeze parameters used for the target Q-values, update
+periodically.
+
+What this looks like is we can save a separate NN, another copy of our two
+function parameters. We'll call this phi prime: $\phi'$. And, when we save this
+out, when we, just for this target, we can use these new parameters, $\phi'$ in
+our target.
+
+These parameters will be frozen, and so it means that inside this inner loop,
+the labels will not change. And, so this inner loop is essentially going to be
+supervised learning with some data being added to the replay buffer. So this
+should be a lot more stable. Supervised learning is a lot more stable generally.
+Then, only periodically then update our target network parameters to be the same
+as our latest function.
+
+![image 6_17](./6_17.png)
+
+Q-learning with replay buffer and target network:
+
+0. save target network parameters: $\phi' \leftarrow \phi$
+
+   $1$. collect data $\{(s_i, a_i, s_{i}', r_i)\}$ using some policy, add it to
+   $\mathscr{R}$
+
+   $2$. sample a batch $(s_i, a_i, s_{i}', r_i)$ from $\mathscr{R}$
+
+   $3$.
+   $\phi \leftarrow \phi - \alpha\sum_{i}{\dfrac{dQ_\phi}{d\phi}(s_i, a_i)\left(Q_\phi(s_i,a_i) - \underbrace{\left[r(s_i,a_i) + \gamma \max_{a'}\underbrace{Q_{\phi'}(s_{i}', a_{i}')}_{\text{frozen target network}}\right]}_{\text{labels don't change in inner loop.}}\right)}$
+
+So as you can see, we have an oute r loop in which we loop through steps 0-3. We
+have a First inner loop going from 1-3, which we repeat $N$ times, and we have
+an inner loop going from 2-3, which we repeat $K$ times.
+
+During the first inner loop going from 1-3, which we repeat $N$ times, we are in
+an **inner loop, which is doing some supervised learning.**
+
+During the second inner loop from 2-3, which we repeat $K$ times, we freeze our
+target network $\gamma\max_{a'}Q_{\phi'}(s_{i}',a_{i}')$, and the **labels don't
+change in the inner loop**,
+$\left[r(s_i,a_i) + \gamma \max_{a'}Q_{\phi'}(s_{i}',a_{i}')\right]$.
+
+This corresponds to what is known as a
+[Deep Q Network](https://www.geeksforgeeks.org/deep-learning/deep-q-learning/)
+algorithm, or a DQN. algorithm. It was introduced in 2013, and basically it was
+the first DRL (Deep Reinforcement Learning) method (in my opinion).
+
+What they found is that you could actually train NNs to play a variety of
+different Atari games. It was one of the first examples of using RL to train NN
+to do a pretty complicated task. They were actually training directly from the
+pixel observations from the game.
+
+Prior to that, a lot of the RL examples were on very toy settings, very low
+dimensional settings.
+
+---
+
+## Are the Q-values accurate?
+
+So that's the first trick, use a target network that you only periodically
+update. There's two more things that make Q-learning work a lot better.
+
+The first one is actually looking at the accuracy of the Q-values.
+
+If you plot the reward over training, the reward goes up:
+
+![image 6_18](./6_18.png)
+
+That's good, this first graph shows a reward on the game of breakout, and the
+second graph on the game of seaquest.
+
+And if you also plot the Q-values over the course of training, they're also
+going up. And that is definitely what you'd expect because the Q-values is
+representing your average reward. So that's good. One thing to note, as a kind
+of practical tip, is when you're looking at the loss function on your Q-values
+during training, when you train with, the loss values will actually often go up
+through training. This is sometimes a little bit alarming because you're used to
+loss values going down. But the reason for that is you're collecting new data,
+and that new data has higher $Q$-values and so the scaling of your loss function
+is increasing throughout training. And at the very beginning, if you're getting
+oneyear of rewrd everywhere, it might be very easy to get a loss function. So
+don't be alarmed if your loss function is going up. Sometimes that means that
+the algorithm or the policy is starting to.
+
+$$ y_i = r(s,a) + \gamma \max{a'}Q(s',a') $$
+
+![image 6_19](./6_19.png)
+
+So our rewards are looking pretty good. As predicted, Q increases. So does the
+return. You can also look at the alue over training, and you see that right in
+the firstcase, the values are fairly uniform, but once you're in a state where
+you really have to go up, then the Q-value for the action of up is higher than
+going down or a no up. Likewise, it is important to go up, and so the Q-value is
+higher for going upt hen the actions of going or no up. On the right side, it
+doesn't matter, because the ball on the other side on the opponent's side, and
+so the Q-value is more uniform. So when you visualize the Q-values, they look
+pretty reasonable, which is good.
+
+But then if you actually plot what the true returns are:
+
+![image 6_20](./6_20.png)
+
+The true returns are shown in the red here, on this red horizontal line. And the
+estimate of the values according to the two networks are shown in this upper
+line. And you can actually see this very huge gap between the estimate, where
+the estimate is always a lot higher than the true value. So it sems like we're
+seeing a lot of what's called overestimation, where our Q-function is
+overestimating how good our policy is. And then there's this algorithm that was
+introduced called
+[Double DQN](https://en.wikipedia.org/wiki/Q-learning#Double_Q-learning) that's
+able to get a much more accurate Q-function, it's able to overestimate far far
+less than DQ.
+
+Let's now talk a little bit about Double DQN and overestimations.
+
+## Overestimation in Q-learning
+
+$$ \text{target value } y_j = r_j + \gamma \max_{a_{j}'}Q_{\phi'}(s_{j}', a_{j}') $$
+
+So our target value is where we're taking a max over an action, and when we take
+this max, we're choosing an action that maximizes this $Q$ line:
+
+$$ Q_{\phi'}(s_{j}', a_{j}') $$
+
+Another way to write/think of this is, think of it as:
+
+$$ Q_\phi(s,\arg \max_{a'}Q_\phi(s',a')) $$
+
+And so we're both using an action that has high Q-value, and evaluating the
+Q-value of that action, using the same Q-function. This means that if there's
+noise in our Q-function, then it's very easy to basically pick actions that are
+using that noise to get a higher Q-value.
+
+$$ \text{target value } y_j = r_j + \gamma \max_{a_{j}'}\underbrace{Q_{\phi'}(s_{j}', a_{j}')}_{\text{this last term is the problem}} $$
+
+$Q_{\phi'}(s',a')$ is not perfect - it looks "noisy"
+
+hence $\max_{a'}Q_{\phi}'(s', a')$ _overestimates_ the next value!
+
+note that
+$\max_{a'}Q_{\phi'}(s',a') = Q_{\phi'}(s', \arg \max_{a'}Q_{\phi'}(s', a'))$
+
+$$ \max_{a'}Q_{\phi'}(s',a') = \underbrace{Q_{\phi'}}_{\text{value also comes from } Q_{\phi'}}(s', \underbrace{\arg \max_{a'}Q_{\phi'}(s', a')}_{\text{action selected according to } Q_{\phi'}}) $$
+
+![image 6_21](./6_21.png)
+
+## Double Q-learning
+
+$$ \max_{a'}Q_{\phi'}(s',a') = \underbrace{Q_{\phi'}}_{\text{value also comes from } Q_{\phi'}}(s', \underbrace{\arg \max_{a'}Q_{\phi'}(s', a')}_{\text{action selected according to } Q_{\phi'}}) $$
+
+Now, if you instead use different Q-function for taking an action and evaluating
+it, then you can decorrelate the noise. If 6ou had two different Q-functions,
+they would have naturally different different noise and different errors.
+
+So if we have a way to use different Q-values, we can actually then eliminate
+this problem of overestimation by essentially decorrelating the noise, by using
+a different Q-function to estimate the key axis here as to evaluate the axis.
+
+![image 6_22](./6_22.png)
+
+And so the key idea behind Double Q-learning is to have us use two different
+networks. One network, network A for picking actions, and network B for
+evaluating.
+
+$$ Q_{\phi A}(s,a) \leftarrow r + \gamma Q_{\phi B}(s', \arg \max_{a'}Q_{\phi A}(s',a')) $$
+
+$$ Q_{\phi B}(s,a) \leftarrow r + \gamma Q_{\phi A}(s', \arg \max_{a'}Q_{\phi B}(s',a')) $$
+
+And then if they're noisy in different ways, then we're not going to then be
+exploiting noise in our Q-values. Then, as a result not overestimating our
+Q-values. This method is not perfect, but it does help.
+
+![image 6_23](./6_23.png)
+
+## N-step returns?
+
+Recall that:
+
+Q-learning target:
+$y_{j,t} = r_{j,t} + \gamma\max_{a_j,t+1}Q_{\phi'}(s_{j,t+1},a_{j,t+1})$
+
+$$ \underbrace{(s_{j,t+1},a_{j,t+1})}_{\text{these values are important if } Q_{\phi'} \text{ is good}} $$
+
+$$ \underbrace{r_{j,t}}_{\text{these are the only values that matter if } Q_{\phi'} \text{ is bad!}} $$
+
+If you just have a single reward function here, then that might be a bit
+troublesome, because a single reward function might not tell you that much about
+how good your Q-value is.
+
+So, if you remember when we talked about active critic methods, we talked bout
+using $n$-step return. So we use this Monte Carlo, using the sum of rewards, if
+we use bootstrapping, we just do $r + V$ at each time step:
+
+![image 6_24](./6_24.png)
+
+And, using bootstreeping, instead we talked about this thing that we could do in
+the middle where we summed the rewards over the next end timestep:
+
+$$ \sum_{t}^{t+n-1}{r + V_{t+n}} $$
+
+And then use the value at the timestep after that. We talked about how this has
+less variance and lower bias. And lower bias in the sense that if your targets
+are bad, the reward function is going to be more accurate.
+
+So can we do this for Q-values?
+
+What this would look like for Q-values is, say that your target was:
+
+$$ Q(s_t,a_t)  $$
+
+Then yhou define this as:
+
+$$ y_i =r_t + r_{t+1} + \dots + r_{t+n-1} + \gamma \max_{a_{t+n}}Q(s_{t+n},a_{t+n}) $$
+
+So this is what $n$-steps could look like for Q-learning.
+
+One issue with this is that if you are doing this off-policy, then all these
+$r$'s will be coming from the replay buffer, rather than the optimal policy,
+what you're trying to estimate.
+
+So let's look at some pros/cons:
+
+- +(far) less biased target values when Q-values are inaccurate
+
+- +typically faster learning, especially early on
+
+- -these are the rewards for policy that collected the data
+
+- -only actually correct when learning on-policy (not an issue when N=1)
+
+**Ways to fix?**
+
+Most commonly: ignore the problem & still use $N > 1$
+
+Can also:
+
+- dynamically choose $N$ to only use data that follows current policy (if data
+  mostly on-policy, action space is small)
+
+- use importance sampling
+
+## When to use one online RL algorithm vs. another?
+
+**Chelsea's advice**
+
+**PPO & variants**
+
+- When you care about stability, ease-of-use
+
+- When you don't care about data efficiency
+
+**DQN & variants**
+
+- When you have discrete actions or low-dimensional continuous actions
+
+**SAC & variants**
+
+When you care most about data efficiency
+
+When you are okay with tuning hyperparameters, less stability
