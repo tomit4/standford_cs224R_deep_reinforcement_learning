@@ -574,7 +574,7 @@ $$ \nabla_\theta\log\pi_\theta(a_i|s_i)\hat{A} ^\pi(s_i,a_i)$$
 
 There's a couple things we'll do here:
 
-**First:** convenient to use $\hat{A}^\pi$ instead of $\hat{A}^\pi$. (_i.e._ no
+**First:** convenient to use $\hat{Q}^\pi$ instead of $\hat{A}^\pi$. (_i.e._ no
 average reward baseline). Higher variance, but okay b/c we're now using a lot
 more data (all data in buffer).
 
